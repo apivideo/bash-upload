@@ -91,7 +91,7 @@ mkdir ./videoChunk
 printf "Split video into multiple chunks"
 printf "\n"
 
-split --bytes=100M ${file} ./videoChunk/videoChunked
+split -b=100M ${file} ./videoChunk/videoChunked
 
 
 filesize=$(wc -c ${file} | awk '{print $1}')

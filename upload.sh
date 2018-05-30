@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 usage() { echo "Usage: $0 [-f <PATH_FILE>]" 1>&2; exit 1; }
 debug=false
 while getopts ":f:debug:" opt; do
@@ -29,8 +30,7 @@ printf "\n"
 read -p "Video title:" title
 
 printf "\n"
-printf "Try authentication"
-printf "\n"
+printf "Try authentication \n"
 
 access_token=$(curl -s -X POST \
 https://ws.api.video/token \
@@ -42,86 +42,54 @@ https://ws.api.video/token \
 
 if [ -z "$access_token" ];
 then
-    printf "Authentification failed. Please retry."
-    printf "\n"
+    printf "Authentification failed. Please retry. \n"
     exit 1
 fi
 
-printf "Authentication succeed"
-printf "\n"
-printf "Try create video"
-printf "\n"
-printf "From file "${file}
-printf "\n"
+printf "Authentication succeed \n"
 
+printf "Try create video from file %s \n" ${file}
 source=$(curl -s -X POST \
-https://ws.api.video/videos \
--H 'Content-Type: application/json' \
--H 'Authorization: Bearer '${access_token} \
--d '{"title": "'${title}'"}' | python -c 'import sys, json; print json.load(sys.stdin)["source"]["uri"]')
-
+    https://ws.api.video/videos \
+    -H 'Content-Type: application/json' \
+    -H 'Authorization: Bearer '${access_token} \
+    -d $(printf '{"title":"%s"}' ${title}) |  python -c 'import sys, json; print json.load(sys.stdin)["source"]["uri"]'
+)
 
 if [ -z "$source" ];
 then
-    printf "Error when attempted to create vidéo. Please retry."
-    printf "\n"
+    printf "Error when attempted to create video. Please retry. \n"
     exit 1
 fi
 
-printf ${source}
-printf "\n"
-
-printf "Create video succeed"
-printf "\n"
+printf "Create video succeed \n"
 
 
-printf "Create chunk directory"
-printf "\n"
-
+printf "Create chunk directory \n"
 rm -rf /tmp/.apivideo-chunks
 mkdir /tmp/.apivideo-chunks
 
-
-
-printf "Split video into multiple chunks"
-printf "\n"
-
+printf "Split video into multiple chunks \n"
 split -b 104857600 ${file} /tmp/.apivideo-chunks/chunk
-
-
 filesize=$(wc -c ${file} | awk '{print $1}')
 
-
-printf "File size "${filesize}
-printf "\n"
-
-numberChunks=$(($(ls -l /tmp/.apivideo-chunks/chunk*| grep -v ^d | wc -l)-1))
-
+printf "File size %d \n" ${filesize}
+numberChunks=$(ls -1 /tmp/.apivideo-chunks/chunk* 2>/dev/null | wc -l)
 counter=0;
 bytessend=0
-printf "Try uploading to https://ws.api.video"${source}
-printf "\n"
 
+printf "Try uploading %d chunks to https://ws.api.video%s \n\n" ${numberChunks} ${source}
 for filename in /tmp/.apivideo-chunks/chunk*; do
-    printf "\n"
-    printf ${filename}
-    printf "\n"
+    printf "* %s \n" ${filename}
 
     chunksize=$(wc -c ${filename} | awk '{print $1}')
 
-    printf "Chunk size is "${chunksize}
-    printf "\n"
-    printf "Bytes send is "${bytessend}
-    printf "\n"
+    printf "  Chunk %d/%d size is %db \n" $((counter + 1)) ${numberChunks} ${chunksize}
 
     from=${bytessend}
     bytessend=$(($bytessend + $chunksize))
 
-    printf "Send bytes "${from}"-"$((bytessend - 1))"/"${filesize}
-    printf "\n"
-
-
-
+    printf "  Send bytes %d-%d/%d \n\n" ${from} $((bytessend - 1)) ${filesize}
 
     ((counter++))
     if [ ${counter} -eq ${numberChunks} ];
@@ -135,12 +103,11 @@ for filename in /tmp/.apivideo-chunks/chunk*; do
         )
         if [ -z "hls" ];
         then
-            printf "Upload failed. Please retry"
-            printf "\n"
+            printf "Upload failed. Please retry \n"
             exit 1
         fi
-        printf "Get HLS stream from "${hls}
-        printf "\n"
+        printf "Get HLS stream from %s \n" ${hls}
+
     else
         curl -s -X POST \
         https://ws.api.video${source} \

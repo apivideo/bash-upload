@@ -24,21 +24,16 @@ fi
 
 
 read -p "Username:" username
-printf "\n"
 read -s -p "Password:" password
-printf "\n"
-read -p "Video title:" title
-
-printf "\n"
-printf "Try authentication \n"
 
 access_token=$(curl -s -X POST \
-https://ws.api.video/token \
--H 'Content-Type: application/json' \
--d '{
-    "username": "'${username}'",
-    "password": "'${password}'"
-}' | python -c 'import sys, json; print json.load(sys.stdin)["access_token"]')
+    https://ws.api.video/token \
+    -H 'Content-Type: application/json' \
+    -d '{
+        "username": "'${username}'",
+        "password": "'${password}'"
+    }' | python -c 'import sys, json; print json.load(sys.stdin)["access_token"]'
+)
 
 if [ -z "$access_token" ];
 then
@@ -46,24 +41,26 @@ then
     exit 1
 fi
 
-printf "Authentication succeed \n"
+printf "Authentication succeed \n\n"
 
-printf "Try create video from file %s \n" ${file}
-source=$(curl -s -X POST \
+title=$(basename ${file})
+
+printf "Try create video from file %s \n" ${title}
+response=$(curl -s -X POST \
     https://ws.api.video/videos \
     -H 'Content-Type: application/json' \
     -H 'Authorization: Bearer '${access_token} \
-    -d $(printf '{"title":"%s"}' ${title}) |  python -c 'import sys, json; print json.load(sys.stdin)["source"]["uri"]'
+    -d '{"title":"'${title}'"}'
 )
+#printf "%s \n" ${response}
+source=$(echo ${response} | python -c 'import sys, json; print json.load(sys.stdin)["source"]["uri"]')
 
 if [ -z "$source" ];
 then
     printf "Error when attempted to create video. Please retry. \n"
     exit 1
 fi
-
 printf "Create video succeed \n"
-
 
 printf "Create chunk directory \n"
 rm -rf /tmp/.apivideo-chunks
@@ -73,7 +70,6 @@ printf "Split video into multiple chunks \n"
 split -b 104857600 ${file} /tmp/.apivideo-chunks/chunk
 filesize=$(wc -c ${file} | awk '{print $1}')
 
-printf "File size %d \n" ${filesize}
 numberChunks=$(ls -1 /tmp/.apivideo-chunks/chunk* 2>/dev/null | wc -l)
 counter=0;
 bytessend=0
@@ -119,3 +115,4 @@ for filename in /tmp/.apivideo-chunks/chunk*; do
     fi
 
 done
+

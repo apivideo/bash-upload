@@ -32,7 +32,7 @@ printf "\n"
 printf "Try authentication"
 printf "\n"
 
-access_token=$(curl -X POST \
+access_token=$(curl -s -X POST \
 https://ws.api.video/token \
 -H 'Content-Type: application/json' \
 -d '{
@@ -53,17 +53,12 @@ printf "Try create video"
 printf "\n"
 printf "From file "${file}
 printf "\n"
-printf "curl -v -X POST \
-https://ws.api.video/videos \
--H 'Content-Type: application/json' \
--H 'Authorization: Bearer '${access_token} \
--d '{\"title\":\"${title}\"}'"
 
-source=$(curl -X POST \
+source=$(curl -s -X POST \
 https://ws.api.video/videos \
 -H 'Content-Type: application/json' \
 -H 'Authorization: Bearer '${access_token} \
--d '{"title":"${title}"}' | python -c 'import sys, json; print json.load(sys.stdin)["source"]["uri"]')
+-d '{"title": "'${title}'"}' | python -c 'import sys, json; print json.load(sys.stdin)["source"]["uri"]')
 
 
 if [ -z "$source" ];
@@ -83,15 +78,15 @@ printf "\n"
 printf "Create chunk directory"
 printf "\n"
 
-rm -rf ./videoChunk
-mkdir ./videoChunk
+rm -rf /tmp/.apivideo-chunks
+mkdir /tmp/.apivideo-chunks
 
 
 
 printf "Split video into multiple chunks"
 printf "\n"
 
-split -b=100M ${file} ./videoChunk/videoChunked
+split -b 104857600 ${file} /tmp/.apivideo-chunks/chunk
 
 
 filesize=$(wc -c ${file} | awk '{print $1}')
@@ -100,19 +95,16 @@ filesize=$(wc -c ${file} | awk '{print $1}')
 printf "File size "${filesize}
 printf "\n"
 
-numberChunks=$(($(ls -l ./videoChunk | grep -v ^d | wc -l)-1))
+numberChunks=$(($(ls -l /tmp/.apivideo-chunks/chunk*| grep -v ^d | wc -l)-1))
 
 counter=0;
 bytessend=0
 printf "Try uploading to https://ws.api.video"${source}
 printf "\n"
 
-for filename in ./videoChunk/*; do
+for filename in /tmp/.apivideo-chunks/chunk*; do
     printf "\n"
     printf ${filename}
-    printf "\n"
-    fullpath=$(find $(pwd)/${filename} -type f)
-    printf ${fullpath}
     printf "\n"
 
     chunksize=$(wc -c ${filename} | awk '{print $1}')
@@ -134,12 +126,12 @@ for filename in ./videoChunk/*; do
     ((counter++))
     if [ ${counter} -eq ${numberChunks} ];
     then
-        hls=$(curl -X POST \
+        hls=$(curl -s  -X POST \
         https://ws.api.video${source} \
         -H 'Content-Range: bytes '${from}'-'$((bytessend - 1))'/'${filesize} \
         -H 'content-type: multipart/form-data;' \
         -H 'Authorization: Bearer '${access_token} \
-        -F file=@${fullpath}  | python -c 'import sys, json; print json.load(sys.stdin)["assets"]["hls"]'
+        -F file=@${filename}  | python -c 'import sys, json; print json.load(sys.stdin)["assets"]["hls"]'
         )
         if [ -z "hls" ];
         then
@@ -150,13 +142,13 @@ for filename in ./videoChunk/*; do
         printf "Get HLS stream from "${hls}
         printf "\n"
     else
-        curl -X POST \
+        curl -s -X POST \
         https://ws.api.video${source} \
         -H 'Content-Range: bytes '${from}'-'$((bytessend - 1))'/'${filesize}'' \
         -H 'Expect: 100-Continue' \
         -H 'content-type: multipart/form-data;' \
         -H 'Authorization: Bearer '${access_token} \
-        -F file=@${fullpath}
+        -F file=@${filename}
     fi
 
 done

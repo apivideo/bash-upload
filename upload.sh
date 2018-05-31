@@ -25,6 +25,8 @@ fi
 
 read -p "Username:" username
 read -s -p "Password:" password
+printf "\n"
+read -p "Video title:" title
 
 access_token=$(curl -s -X POST \
     https://ws.api.video/token \
@@ -43,16 +45,15 @@ fi
 
 printf "Authentication succeed \n\n"
 
-title=$(basename ${file})
 
-printf "Try create video from file %s \n" ${title}
+printf "Try create video from file %s \n" "${title}"
 response=$(curl -s -X POST \
     https://ws.api.video/videos \
     -H 'Content-Type: application/json' \
     -H 'Authorization: Bearer '${access_token} \
-    -d '{"title":"'${title}'"}'
+    -d '{"title":'"\"${title}\""'}'
 )
-#printf "%s \n" ${response}
+
 source=$(echo ${response} | python -c 'import sys, json; print json.load(sys.stdin)["source"]["uri"]')
 
 if [ -z "$source" ];
